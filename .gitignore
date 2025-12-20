@@ -1,0 +1,54 @@
+# ---------------------------
+# Global ignores
+# ---------------------------
+.DS_Store
+Thumbs.db
+*.log
+.env
+.env.*
+
+# ---------------------------
+# Backend (.NET)
+# ---------------------------
+backend/
+backend/bin/
+backend/obj/
+backend/**/*.user
+backend/**/*.rsuser
+backend/**/*.suo
+backend/**/*.cache
+backend/**/*.pdb
+backend/**/*.ide
+backend/**/*.dbmdl
+backend/.vs/
+
+# NuGet
+*.nupkg
+*.snupkg
+packages/
+.nuget/
+
+# ---------------------------
+# Frontend (Vite/Node)
+# ---------------------------
+frontend/node_modules/
+frontend/dist/
+frontend/.vite/
+frontend/.eslintcache
+frontend/.parcel-cache/
+frontend/.turbo/
+frontend/.next/
+
+# Tooling
+.vscode/
+.idea/
+*.code-workspace
+
+# ---------------------------
+# Build artifacts
+# ---------------------------
+**/coverage/
+**/reports/
+**/tmp/
+**/temp/
+**/.cache/

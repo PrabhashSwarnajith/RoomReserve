@@ -1,0 +1,90 @@
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Playfair+Display:wght@600&display=swap');
+
+:root {
+  --bg-primary: #030b18;
+  --bg-secondary: #08152c;
+  --card-bg: #0f1e3a;
+  --card-highlight: rgba(255, 255, 255, 0.08);
+  --text-primary: #f4f7ff;
+  --text-muted: #9aa8c3;
+  --accent: #54ffe0;
+  --accent-strong: #22d6ff;
+  --border: rgba(255, 255, 255, 0.12);
+  --danger: #ff6b6b;
+  --success: #4bcf81;
+  --warning: #f7c948;
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+*, *::before, *::after {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  font-family: 'DM Sans', 'Segoe UI', system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+  background: radial-gradient(circle at top, #1f3c88 0%, #0d1133 55%, #040714 100%);
+  color: var(--text-primary);
+  display: flex;
+  justify-content: center;
+  padding: 2rem;
+}
+
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background: url('https://www.transparenttextures.com/patterns/dark-fish-skin.png');
+  opacity: 0.16;
+  pointer-events: none;
+}
+
+#root {
+  width: 100%;
+  max-width: 1280px;
+  position: relative;
+  z-index: 1;
+}
+
+a {
+  color: var(--accent);
+  text-decoration: none;
+  transition: color 0.2s ease;
+}
+
+a:hover {
+  color: var(--accent-strong);
+}
+
+h1, h2, h3, h4 {
+  font-family: 'Playfair Display', 'DM Sans', serif;
+  font-weight: 600;
+  margin: 0 0 0.75rem;
+}
+
+p {
+  margin: 0;
+  line-height: 1.6;
+  color: var(--text-muted);
+}
+
+button,
+input,
+select,
+textarea {
+  font-family: inherit;
+}
+
+::selection {
+  background: rgba(84, 255, 224, 0.35);
+}
+
+@media (max-width: 768px) {
+  body {
+    padding: 1.5rem;
+  }
+}

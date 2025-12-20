@@ -10,9 +10,10 @@ Thumbs.db
 # ---------------------------
 # Backend (.NET)
 # ---------------------------
-backend/
 backend/bin/
 backend/obj/
+backend/appsettings.json
+backend/appsettings.Development.json
 backend/**/*.user
 backend/**/*.rsuser
 backend/**/*.suo

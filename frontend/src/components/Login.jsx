@@ -1,73 +1,48 @@
-import React, { useState } from 'react'
-import { useMsal } from '@azure/msal-react'
-import { loginRequest } from '../authConfig'
+import React from 'react'
 import './Login.css'
 
 export default function Login() {
-  const { instance } = useMsal()
-  const [error, setError] = useState(null)
-  const [isLoading, setIsLoading] = useState(false)
-
-  const handleLogin = async () => {
-    setIsLoading(true)
-    setError(null)
-    try {
-      console.log('Starting login with scopes:', loginRequest.scopes)
-      await instance.loginPopup(loginRequest)
-      console.log('Login successful')
-    } catch (error) {
-      console.error('Login failed:', error)
-      
-      // Provide user-friendly error message
-      if (error.errorCode === 'AADSTS9002326') {
-        setError('Authentication configuration issue. Please contact support.')
-      } else if (error.errorCode === 'user_cancelled') {
-        setError(null) // User cancelled, don't show error
-      } else {
-        setError(error.message || 'Login failed. Please try again.')
-      }
-    } finally {
-      setIsLoading(false)
-    }
-  }
-
   return (
     <div className="login-container">
       <div className="login-card">
         <h1>🏨 Hotel Booking System</h1>
-        <p>Sign in with your Microsoft account to book a room</p>
+        <p>Book your perfect room - No login required!</p>
         
-        {error && (
-          <div style={{
-            background: '#ffebee',
-            color: '#c62828',
-            padding: '1rem',
-            borderRadius: '6px',
-            marginBottom: '1rem',
-            fontSize: '0.95rem'
-          }}>
-            {error}
-          </div>
-        )}
-        
-        <button 
-          className="login-button" 
-          onClick={handleLogin}
-          disabled={isLoading}
-        >
-          {isLoading ? 'Signing in...' : 'Sign in with Microsoft'}
-        </button>
-
-        <div className="login-info">
-          <h3>What you need:</h3>
-          <ul>
-            <li>A Microsoft account</li>
-            <li>Access to Microsoft Bookings</li>
-            <li>Required permissions: Bookings.Read.All</li>
-          </ul>
+        <div style={{
+          background: '#e8f5e9',
+          color: '#2e7d32',
+          padding: '1.5rem',
+          borderRadius: '6px',
+          marginBottom: '1rem',
+          fontSize: '0.95rem',
+          textAlign: 'center'
+        }}>
+          ✓ Anonymous booking
+          <br />
+          ✓ Fast & secure
+          <br />
+          ✓ Instant confirmation
         </div>
+
+        <button 
+          onClick={() => window.location.reload()}
+          style={{
+            width: '100%',
+            padding: '0.75rem',
+            backgroundColor: '#1976d2',
+            color: 'white',
+            border: 'none',
+            borderRadius: '4px',
+            cursor: 'pointer',
+            fontSize: '1rem',
+            fontWeight: 'bold'
+          }}
+        >
+          Start Booking
+        </button>
       </div>
     </div>
   )
 }
+
 

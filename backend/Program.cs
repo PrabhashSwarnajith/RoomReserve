@@ -5,20 +5,22 @@ var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddCors(options =>
 {
-    options.AddPolicy("AllowFrontend", builder =>
+    options.AddPolicy("AllowFrontend", policyBuilder =>
     {
-        builder.AllowAnyOrigin()
-               .AllowAnyMethod()
-               .AllowAnyHeader();
+        policyBuilder.AllowAnyOrigin()
+                     .AllowAnyMethod()
+                     .AllowAnyHeader();
     });
 });
 
-// Add services
-builder.Services.AddScoped<IGraphAuthService, GraphAuthService>();
+// Register services
+builder.Services.AddHttpClient<IServiceAccountDelegationService, ServiceAccountDelegationService>();
 builder.Services.AddScoped<IBookingService, BookingService>();
 builder.Services.AddScoped<IEmailService, EmailService>();
+
 builder.Services.AddControllers();
 builder.Services.AddSwaggerGen();
+builder.Services.AddLogging();
 
 var app = builder.Build();
 
@@ -31,4 +33,6 @@ if (app.Environment.IsDevelopment())
 app.UseHttpsRedirection();
 app.UseCors("AllowFrontend");
 app.MapControllers();
+
 app.Run();
+

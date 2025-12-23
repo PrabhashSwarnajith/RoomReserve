@@ -17,30 +17,14 @@ namespace HotelBookingAPI.Controllers
             _logger = logger;
         }
 
-        private string GetAccessToken()
-        {
-            var authHeader = Request.Headers["Authorization"].ToString();
-            if (string.IsNullOrEmpty(authHeader) || !authHeader.StartsWith("Bearer "))
-            {
-                throw new InvalidOperationException("Missing or invalid Authorization header.");
-            }
-            return authHeader.Substring("Bearer ".Length);
-        }
-
         [HttpGet("room-types")]
         public async Task<ActionResult<dynamic>> GetRoomTypes()
         {
             try
             {
                 _logger.LogInformation("Fetching available rooms");
-                var accessToken = GetAccessToken();
-                var roomTypes = await _bookingService.GetRoomTypesAsync(accessToken);
+                var roomTypes = await _bookingService.GetRoomTypesAsync("");
                 return Ok(new { roomTypes });
-            }
-            catch (InvalidOperationException ex)
-            {
-                _logger.LogError($"Authentication error: {ex.Message}");
-                return Unauthorized(new { error = "Unauthorized: " + ex.Message });
             }
             catch (Exception ex)
             {
@@ -59,14 +43,8 @@ namespace HotelBookingAPI.Controllers
                     return BadRequest(new { error = "Room type and check-in date required" });
                 }
 
-                var accessToken = GetAccessToken();
-                var response = await _bookingService.CheckAvailabilityAsync(request, accessToken);
+                var response = await _bookingService.CheckAvailabilityAsync(request, "");
                 return Ok(response);
-            }
-            catch (InvalidOperationException ex)
-            {
-                _logger.LogError($"Authentication error: {ex.Message}");
-                return Unauthorized(new { error = "Unauthorized: " + ex.Message });
             }
             catch (Exception ex)
             {
@@ -102,14 +80,8 @@ namespace HotelBookingAPI.Controllers
                 }
 
                 _logger.LogInformation($"Creating booking for {request.CustomerInfo.FirstName} {request.CustomerInfo.LastName}");
-                var accessToken = GetAccessToken();
-                var response = await _bookingService.CreateBookingAsync(request, accessToken);
+                var response = await _bookingService.CreateBookingAsync(request, "");
                 return Ok(response);
-            }
-            catch (InvalidOperationException ex)
-            {
-                _logger.LogError($"Authentication error: {ex.Message}");
-                return Unauthorized(new { error = "Unauthorized: " + ex.Message });
             }
             catch (Exception ex)
             {
@@ -123,14 +95,8 @@ namespace HotelBookingAPI.Controllers
         {
             try
             {
-                var accessToken = GetAccessToken();
-                var bookings = await _bookingService.GetBookingsAsync(accessToken);
+                var bookings = await _bookingService.GetBookingsAsync("");
                 return Ok(bookings);
-            }
-            catch (InvalidOperationException ex)
-            {
-                _logger.LogError($"Authentication error: {ex.Message}");
-                return Unauthorized(new { error = "Unauthorized: " + ex.Message });
             }
             catch (Exception ex)
             {
@@ -148,18 +114,12 @@ namespace HotelBookingAPI.Controllers
         {
             try
             {
-                var accessToken = GetAccessToken();
-                var booking = await _bookingService.GetBookingByIdAsync(bookingId, accessToken);
+                var booking = await _bookingService.GetBookingByIdAsync(bookingId, "");
                 if (booking == null)
                 {
                     return NotFound();
                 }
                 return Ok(booking);
-            }
-            catch (InvalidOperationException ex)
-            {
-                _logger.LogError($"Authentication error: {ex.Message}");
-                return Unauthorized(new { error = "Unauthorized: " + ex.Message });
             }
             catch (Exception ex)
             {
@@ -182,14 +142,8 @@ namespace HotelBookingAPI.Controllers
                     return BadRequest(new { error = "Request body required" });
                 }
                 request.BookingId = bookingId;
-                var accessToken = GetAccessToken();
-                var updated = await _bookingService.UpdateBookingAsync(request, accessToken);
+                var updated = await _bookingService.UpdateBookingAsync(request, "");
                 return Ok(updated);
-            }
-            catch (InvalidOperationException ex)
-            {
-                _logger.LogError($"Authentication error: {ex.Message}");
-                return Unauthorized(new { error = "Unauthorized: " + ex.Message });
             }
             catch (Exception ex)
             {
@@ -207,18 +161,12 @@ namespace HotelBookingAPI.Controllers
         {
             try
             {
-                var accessToken = GetAccessToken();
-                var deleted = await _bookingService.DeleteBookingAsync(bookingId, accessToken);
+                var deleted = await _bookingService.DeleteBookingAsync(bookingId, "");
                 if (!deleted)
                 {
                     return StatusCode(500, new { error = "Unable to delete booking." });
                 }
                 return NoContent();
-            }
-            catch (InvalidOperationException ex)
-            {
-                _logger.LogError($"Authentication error: {ex.Message}");
-                return Unauthorized(new { error = "Unauthorized: " + ex.Message });
             }
             catch (Exception ex)
             {

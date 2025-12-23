@@ -17,18 +17,18 @@ namespace HotelBookingAPI.Services
 
     public class BookingService : IBookingService
     {
-        private readonly IGraphAuthService _graphAuthService;
+        private readonly IServiceAccountDelegationService _delegationService;
         private readonly IEmailService _emailService;
         private readonly ILogger<BookingService> _logger;
         private readonly IConfiguration _configuration;
 
         public BookingService(
-            IGraphAuthService graphAuthService,
+            IServiceAccountDelegationService delegationService,
             IEmailService emailService,
             ILogger<BookingService> logger,
             IConfiguration configuration)
         {
-            _graphAuthService = graphAuthService;
+            _delegationService = delegationService;
             _emailService = emailService;
             _logger = logger;
             _configuration = configuration;
@@ -38,7 +38,8 @@ namespace HotelBookingAPI.Services
         {
             try
             {
-                var graphClient = await _graphAuthService.GetAuthenticatedGraphClient(accessToken);
+                // Use delegated permissions - service account impersonation
+                var graphClient = await _delegationService.GetAuthenticatedGraphClientAsync();
                 var businessId = _configuration["Bookings:BusinessId"];
 
                 if (string.IsNullOrEmpty(businessId))
@@ -91,7 +92,7 @@ namespace HotelBookingAPI.Services
             {
                 _logger.LogInformation($"Checking availability for room {request.RoomType} on {request.CheckInDate:yyyy-MM-dd}");
 
-                var graphClient = await _graphAuthService.GetAuthenticatedGraphClient(accessToken);
+                var graphClient = await _delegationService.GetAuthenticatedGraphClientAsync();
                 var businessId = _configuration["Bookings:BusinessId"];
 
                 if (string.IsNullOrEmpty(businessId))
@@ -165,7 +166,7 @@ namespace HotelBookingAPI.Services
             {
                 _logger.LogInformation($"Creating booking for {request.CustomerInfo.FirstName} {request.CustomerInfo.LastName}");
 
-                var graphClient = await _graphAuthService.GetAuthenticatedGraphClient(accessToken);
+                var graphClient = await _delegationService.GetAuthenticatedGraphClientAsync();
                 var businessId = _configuration["Bookings:BusinessId"];
                 var staffId = _configuration["Bookings:StaffId"];
                 var encodedBusinessId = System.Web.HttpUtility.UrlEncode(businessId);
@@ -294,7 +295,7 @@ namespace HotelBookingAPI.Services
             var bookings = new List<BookingSummary>();
             try
             {
-                var graphClient = await _graphAuthService.GetAuthenticatedGraphClient(accessToken);
+                var graphClient = await _delegationService.GetAuthenticatedGraphClientAsync();
                 var businessId = _configuration["Bookings:BusinessId"];
 
                 if (string.IsNullOrEmpty(businessId))
@@ -347,7 +348,7 @@ namespace HotelBookingAPI.Services
         {
             try
             {
-                var graphClient = await _graphAuthService.GetAuthenticatedGraphClient(accessToken);
+                var graphClient = await _delegationService.GetAuthenticatedGraphClientAsync();
                 var businessId = _configuration["Bookings:BusinessId"];
                 if (string.IsNullOrEmpty(businessId))
                 {
@@ -379,7 +380,7 @@ namespace HotelBookingAPI.Services
                     throw new ArgumentException("BookingId is required", nameof(request.BookingId));
                 }
 
-                var graphClient = await _graphAuthService.GetAuthenticatedGraphClient(accessToken);
+                var graphClient = await _delegationService.GetAuthenticatedGraphClientAsync();
                 var businessId = _configuration["Bookings:BusinessId"];
                 if (string.IsNullOrEmpty(businessId))
                 {
@@ -437,7 +438,7 @@ namespace HotelBookingAPI.Services
         {
             try
             {
-                var graphClient = await _graphAuthService.GetAuthenticatedGraphClient(accessToken);
+                var graphClient = await _delegationService.GetAuthenticatedGraphClientAsync();
                 var businessId = _configuration["Bookings:BusinessId"];
                 if (string.IsNullOrEmpty(businessId))
                 {

@@ -1,106 +1,26 @@
-import axios from 'axios'
-
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api'
 
-const apiClient = axios.create({
-  baseURL: API_BASE_URL,
-  headers: {
-    'Content-Type': 'application/json'
-  }
-})
-// Add token to requests if available
-export const setAuthToken = (token) => {
-  if (token) {
-    apiClient.defaults.headers.common['Authorization'] = `Bearer ${token}`
-  } else {
-    delete apiClient.defaults.headers.common['Authorization']
-  }
-}
-
+// Get room types
 export const getRoomTypes = async () => {
-  try {
-    const response = await apiClient.get('/bookings/room-types')
-    return response.data
-  } catch (error) {
-    console.error('Error fetching room types:', error)
-    throw error
-  }
+  const response = await fetch(`${API_BASE_URL}/bookings/room-types`)
+  if (!response.ok) throw new Error('Failed to fetch room types')
+  return response.json()
 }
 
-export const checkAvailability = async (roomType, checkInDate) => {
-  try {
-    const dateStr = typeof checkInDate === 'string' 
-      ? checkInDate 
-      : new Date(checkInDate).toISOString()
-    const response = await apiClient.post('/bookings/check-availability', {
-      roomType,
-      checkInDate: dateStr,
-      durationNights: 1
-    })
-    return response.data
-  } catch (error) {
-    console.error('Error checking availability:', error)
-    throw error
-  }
+// Get calendar availability for a room
+export const getCalendarAvailability = async (roomType, months = 3) => {
+  const response = await fetch(`${API_BASE_URL}/bookings/calendar/${roomType}?months=${months}`)
+  if (!response.ok) throw new Error('Failed to fetch calendar')
+  return response.json()
 }
 
+// Create a booking
 export const createBooking = async (bookingData) => {
-  try {
-    const dateStr = typeof bookingData.checkInDate === 'string' 
-      ? bookingData.checkInDate 
-      : new Date(bookingData.checkInDate).toISOString()
-    const payload = {
-      roomType: bookingData.roomType,
-      checkInDate: dateStr,
-      durationNights: bookingData.durationNights || 1,
-      customerInfo: bookingData.customerInfo
-    }
-
-    const response = await apiClient.post('/bookings/create', payload)
-    return response.data
-  } catch (error) {
-    console.error('Error creating booking:', error)
-    throw error
-  }
+  const response = await fetch(`${API_BASE_URL}/bookings/create`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(bookingData)
+  })
+  if (!response.ok) throw new Error('Failed to create booking')
+  return response.json()
 }
-
-export const getBookings = async () => {
-  try {
-    const response = await apiClient.get('/bookings')
-    return response.data
-  } catch (error) {
-    console.error('Error fetching bookings:', error)
-    throw error
-  }
-}
-
-export const updateBooking = async (bookingId, bookingData) => {
-  try {
-    const dateStr = typeof bookingData.checkInDate === 'string'
-      ? bookingData.checkInDate
-      : new Date(bookingData.checkInDate).toISOString()
-    const payload = {
-      roomType: bookingData.roomType,
-      checkInDate: dateStr,
-      durationNights: bookingData.durationNights || 1,
-      customerInfo: bookingData.customerInfo
-    }
-
-    const response = await apiClient.put(`/bookings/${bookingId}`, payload)
-    return response.data
-  } catch (error) {
-    console.error('Error updating booking:', error)
-    throw error
-  }
-}
-
-export const deleteBooking = async (bookingId) => {
-  try {
-    await apiClient.delete(`/bookings/${bookingId}`)
-  } catch (error) {
-    console.error('Error deleting booking:', error)
-    throw error
-  }
-}
-
-export default apiClient

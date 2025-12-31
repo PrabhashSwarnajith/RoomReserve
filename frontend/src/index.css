@@ -1,90 +1,275 @@
-@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Playfair+Display:wght@600&display=swap');
+/* stylelint-disable */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Playfair+Display:wght@600;700;800&display=swap');
 
-:root {
-  --bg-primary: #030b18;
-  --bg-secondary: #08152c;
-  --card-bg: #0f1e3a;
-  --card-highlight: rgba(255, 255, 255, 0.08);
-  --text-primary: #f4f7ff;
-  --text-muted: #9aa8c3;
-  --accent: #54ffe0;
-  --accent-strong: #22d6ff;
-  --border: rgba(255, 255, 255, 0.12);
-  --danger: #ff6b6b;
-  --success: #4bcf81;
-  --warning: #f7c948;
-  font-synthesis: none;
-  text-rendering: optimizeLegibility;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
-}
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
 
-*, *::before, *::after {
-  box-sizing: border-box;
-}
+/* Custom base styles */
+@layer base {
+  * {
+    @apply box-border;
+  }
 
-body {
-  margin: 0;
-  min-height: 100vh;
-  font-family: 'DM Sans', 'Segoe UI', system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
-  background: radial-gradient(circle at top, #1f3c88 0%, #0d1133 55%, #040714 100%);
-  color: var(--text-primary);
-  display: flex;
-  justify-content: center;
-  padding: 2rem;
-}
+  html {
+    scroll-behavior: smooth;
+  }
 
-body::before {
-  content: '';
-  position: fixed;
-  inset: 0;
-  background: url('https://www.transparenttextures.com/patterns/dark-fish-skin.png');
-  opacity: 0.16;
-  pointer-events: none;
-}
-
-#root {
-  width: 100%;
-  max-width: 1280px;
-  position: relative;
-  z-index: 1;
-}
-
-a {
-  color: var(--accent);
-  text-decoration: none;
-  transition: color 0.2s ease;
-}
-
-a:hover {
-  color: var(--accent-strong);
-}
-
-h1, h2, h3, h4 {
-  font-family: 'Playfair Display', 'DM Sans', serif;
-  font-weight: 600;
-  margin: 0 0 0.75rem;
-}
-
-p {
-  margin: 0;
-  line-height: 1.6;
-  color: var(--text-muted);
-}
-
-button,
-input,
-select,
-textarea {
-  font-family: inherit;
-}
-
-::selection {
-  background: rgba(84, 255, 224, 0.35);
-}
-
-@media (max-width: 768px) {
   body {
-    padding: 1.5rem;
+    @apply bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 text-gray-800 overflow-x-hidden;
+    font-family: 'Inter', sans-serif;
+    font-size: 16px;
+    line-height: 1.6;
+  }
+  
+  #root {
+    @apply w-full min-h-screen flex flex-col;
+  }
+
+  h1 {
+    @apply text-4xl md:text-5xl font-display font-bold leading-tight text-gray-900;
+    font-family: 'Playfair Display', serif;
+  }
+
+  h2 {
+    @apply text-2xl md:text-3xl font-display font-bold leading-tight text-gray-800;
+    font-family: 'Playfair Display', serif;
+  }
+
+  h3 {
+    @apply text-xl md:text-2xl font-display font-bold leading-snug text-gray-800;
+    font-family: 'Playfair Display', serif;
+  }
+
+  h4, h5, h6 {
+    @apply font-display font-semibold leading-tight text-gray-800;
+    font-family: 'Playfair Display', serif;
+  }
+
+  p {
+    @apply m-0 leading-relaxed text-gray-700;
+  }
+
+  label {
+    @apply block text-sm font-semibold text-gray-700 mb-2;
+  }
+
+  button,
+  input,
+  select,
+  textarea {
+    font-family: 'Inter', sans-serif;
+  }
+
+  input::-webkit-outer-spin-button,
+  input::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+  }
+
+  input[type=number] {
+    -moz-appearance: textfield;
+    appearance: textfield;
+  }
+}
+
+/* Selection color */
+::selection {
+  @apply bg-sky-500 text-white;
+}
+
+/* Component Styles */
+@layer components {
+  /* Card Component */
+  .card {
+    @apply bg-white rounded-2xl shadow-2xl border border-gray-100 p-6 md:p-8;
+  }
+
+  /* Step Badge */
+  .step-badge {
+    @apply w-10 h-10 md:w-12 md:h-12 rounded-full flex items-center justify-center font-bold text-xs md:text-lg transition-all;
+  }
+
+  .step-badge-active {
+    @apply bg-gradient-to-br from-sky-400 to-sky-600 text-white shadow-lg shadow-sky-500/50 scale-110;
+  }
+
+  .step-badge-completed {
+    @apply bg-gradient-to-br from-emerald-400 to-emerald-600 text-white shadow-lg shadow-emerald-500/50;
+  }
+
+  .step-badge-inactive {
+    @apply bg-gray-200 text-gray-500;
+  }
+
+  /* Input Field */
+  .input-field {
+    @apply w-full px-4 py-2.5 md:py-3 text-base border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-sky-500 focus:ring-offset-2 focus:border-transparent transition-all bg-white placeholder-gray-400;
+  }
+
+  .input-field:disabled {
+    @apply bg-gray-50 cursor-not-allowed opacity-60;
+  }
+
+  /* Buttons */
+  .btn {
+    @apply px-4 md:px-6 py-2.5 md:py-3 text-sm md:text-base rounded-lg font-semibold transition-all duration-200 cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed;
+  }
+
+  .btn-primary {
+    @apply bg-gradient-to-r from-sky-500 to-sky-600 text-white hover:from-sky-600 hover:to-sky-700 shadow-lg hover:shadow-xl active:scale-95 font-medium;
+  }
+
+  .btn-secondary {
+    @apply bg-gray-200 text-gray-800 hover:bg-gray-300 border border-gray-300 font-medium;
+  }
+
+  /* Room Card */
+  .room-card {
+    @apply bg-white border-2 border-gray-200 p-5 md:p-6 rounded-xl cursor-pointer transition-all duration-300 hover:border-sky-500 hover:shadow-xl hover:bg-gradient-to-br hover:from-sky-50 hover:to-blue-50 text-left;
+  }
+
+  .room-card:active {
+    @apply scale-95;
+  }
+
+  .room-card.selected {
+    @apply border-sky-500 bg-gradient-to-br from-sky-50 to-blue-50 shadow-xl;
+  }
+
+  /* Calendar Wrapper */
+  .calendar-wrapper {
+    @apply bg-white rounded-2xl shadow-2xl border border-gray-100 p-5 md:p-8 w-full max-w-5xl mx-auto;
+  }
+
+  .calendar-month {
+    @apply w-full;
+  }
+
+  .calendar-header {
+    @apply flex items-center justify-between mb-6 md:mb-8 pb-4 md:pb-6 border-b-2 border-gray-200 gap-4;
+  }
+
+  .calendar-nav-btn {
+    @apply w-10 h-10 md:w-12 md:h-12 rounded-lg bg-gradient-to-br from-sky-100 to-blue-100 text-sky-600 hover:from-sky-500 hover:to-sky-700 hover:text-white transition-all duration-200 disabled:opacity-30 disabled:cursor-not-allowed disabled:hover:from-sky-100 disabled:hover:to-blue-100 disabled:hover:text-sky-600 flex items-center justify-center font-bold text-lg md:text-2xl;
+  }
+
+  .calendar-title {
+    @apply text-xl md:text-3xl font-display font-bold text-gray-800 flex-1 text-center;
+  }
+
+  .weekday-header {
+    @apply grid grid-cols-7 gap-1 md:gap-2 mb-2 md:mb-3 bg-gradient-to-r from-gray-50 to-blue-50 rounded-lg p-2 md:p-3;
+  }
+
+  .weekday {
+    @apply text-center font-bold text-xs md:text-sm text-gray-700 py-2 md:py-3 px-1 md:px-2;
+  }
+
+  .calendar-grid {
+    @apply grid grid-cols-7 gap-1 md:gap-2 auto-rows-fr;
+  }
+
+  .calendar-day {
+    @apply aspect-square flex flex-col items-center justify-center rounded-lg border-2 cursor-pointer transition-all duration-200 hover:shadow-lg text-xs md:text-sm;
+  }
+
+  .calendar-day.empty {
+    @apply bg-transparent border-transparent cursor-default hover:shadow-none;
+  }
+
+  .calendar-day.available {
+    @apply bg-gradient-to-br from-emerald-50 to-green-50 border-emerald-400 text-gray-800 font-semibold hover:from-emerald-100 hover:to-green-100 hover:shadow-md hover:scale-105;
+  }
+
+  .calendar-day.booked {
+    @apply bg-red-50 border-red-300 text-red-400 cursor-not-allowed opacity-50 hover:scale-100;
+  }
+
+  .calendar-day.selected {
+    @apply bg-gradient-to-br from-sky-500 to-sky-600 text-white border-sky-600 shadow-lg shadow-sky-500/50 scale-110 font-bold;
+  }
+
+  .calendar-day-number {
+    @apply font-bold text-sm md:text-base;
+  }
+
+  .calendar-day-price {
+    @apply text-xs font-semibold text-gray-600 mt-0.5 md:mt-1;
+  }
+
+  .calendar-day.selected .calendar-day-price {
+    @apply text-sky-100 font-semibold;
+  }
+}
+
+/* Responsive Utilities */
+@layer utilities {
+  /* Animations */
+  .fade-in {
+    @apply animate-in fade-in duration-300;
+  }
+  
+  .slide-up {
+    @apply animate-in slide-in-from-bottom-4 duration-300;
+  }
+
+  /* Responsive padding */
+  .px-safe {
+    @apply px-4 md:px-6 lg:px-8;
+  }
+
+  .py-safe {
+    @apply py-6 md:py-8 lg:py-10;
+  }
+
+  /* Responsive text */
+  .text-responsive {
+    @apply text-sm md:text-base lg:text-lg;
+  }
+
+  /* Responsive gap */
+  .gap-safe {
+    @apply gap-3 md:gap-4 lg:gap-6;
+  }
+
+  /* Shadows */
+  .shadow-soft {
+    @apply shadow-lg;
+  }
+
+  .shadow-hard {
+    @apply shadow-2xl;
+  }
+}
+
+/* Mobile-first responsive adjustments */
+@media (max-width: 640px) {
+  body {
+    font-size: 15px;
+  }
+
+  .card {
+    @apply p-5;
+  }
+
+  h1 {
+    @apply text-3xl;
+  }
+
+  h2 {
+    @apply text-xl;
+  }
+
+  h3 {
+    @apply text-lg;
+  }
+
+  .btn {
+    @apply text-sm px-4 py-2;
+  }
+
+  .calendar-wrapper {
+    @apply p-4;
   }
 }

@@ -4,41 +4,46 @@ using Microsoft.Graph.Models;
 
 namespace HotelBookingAPI.Services
 {
+    /// <summary>
+    /// Interface for hotel booking operations
+    /// </summary>
     public interface IBookingService
     {
-        Task<CheckAvailabilityResponse> CheckAvailabilityAsync(CheckAvailabilityRequest request, string accessToken);
-        Task<CreateBookingResponse> CreateBookingAsync(CreateBookingRequest request, string accessToken);
         Task<List<RoomType>> GetRoomTypesAsync(string accessToken);
+        Task<CalendarAvailabilityResponse> GetCalendarAvailabilityAsync(string roomType, int months, string accessToken);
+        Task<CreateBookingResponse> CreateBookingAsync(CreateBookingRequest request, string accessToken);
         Task<List<BookingSummary>> GetBookingsAsync(string accessToken);
         Task<CreateBookingResponse?> GetBookingByIdAsync(string bookingId, string accessToken);
         Task<CreateBookingResponse?> UpdateBookingAsync(UpdateBookingRequest request, string accessToken);
         Task<bool> DeleteBookingAsync(string bookingId, string accessToken);
     }
 
+    /// <summary>
+    /// Service for managing hotel bookings using Microsoft Graph API
+    /// </summary>
     public class BookingService : IBookingService
     {
         private readonly IServiceAccountDelegationService _delegationService;
-        private readonly IEmailService _emailService;
         private readonly ILogger<BookingService> _logger;
         private readonly IConfiguration _configuration;
 
         public BookingService(
             IServiceAccountDelegationService delegationService,
-            IEmailService emailService,
             ILogger<BookingService> logger,
             IConfiguration configuration)
         {
             _delegationService = delegationService;
-            _emailService = emailService;
             _logger = logger;
             _configuration = configuration;
         }
 
+        /// <summary>
+        /// Get all available room types
+        /// </summary>
         public async Task<List<RoomType>> GetRoomTypesAsync(string accessToken)
         {
             try
             {
-                // Use delegated permissions - service account impersonation
                 var graphClient = await _delegationService.GetAuthenticatedGraphClientAsync();
                 var businessId = _configuration["Bookings:BusinessId"];
 
@@ -48,8 +53,6 @@ namespace HotelBookingAPI.Services
                     return new List<RoomType>();
                 }
 
-                _logger.LogInformation($"Fetching room services from Business: {businessId}");
-
                 var services = await graphClient
                     .Solutions
                     .BookingBusinesses[businessId]
@@ -58,7 +61,7 @@ namespace HotelBookingAPI.Services
 
                 var roomTypes = new List<RoomType>();
 
-                if (services?.Value != null && services.Value.Count > 0)
+                if (services?.Value != null)
                 {
                     foreach (var service in services.Value)
                     {
@@ -67,13 +70,11 @@ namespace HotelBookingAPI.Services
                             Id = service.Id ?? Guid.NewGuid().ToString(),
                             Name = service.DisplayName ?? "Room",
                             Description = service.Description ?? string.Empty,
-                            Price = service.DefaultPrice.HasValue ? Convert.ToDecimal(service.DefaultPrice.Value) : 0m,
+                            Price = service.DefaultPrice.HasValue ? Convert.ToDecimal(service.DefaultPrice.Value) : 100m,
                             Capacity = 2,
-                            Amenities = new List<string> { "WiFi", "TV", "Air Conditioning" }
+                            Amenities = new List<string> { "WiFi", "TV", "AC" }
                         });
                     }
-
-                    _logger.LogInformation($"Retrieved {roomTypes.Count} rooms from Microsoft Graph");
                 }
 
                 return roomTypes;
@@ -81,215 +82,196 @@ namespace HotelBookingAPI.Services
             catch (Exception ex)
             {
                 _logger.LogError($"Error fetching rooms: {ex.Message}");
-                
                 return new List<RoomType>();
             }
         }
 
-        public async Task<CheckAvailabilityResponse> CheckAvailabilityAsync(CheckAvailabilityRequest request, string accessToken)
+        /// <summary>
+        /// Get calendar availability for a room type
+        /// </summary>
+        public async Task<CalendarAvailabilityResponse> GetCalendarAvailabilityAsync(string roomType, int months, string accessToken)
         {
             try
             {
-                _logger.LogInformation($"Checking availability for room {request.RoomType} on {request.CheckInDate:yyyy-MM-dd}");
-
                 var graphClient = await _delegationService.GetAuthenticatedGraphClientAsync();
                 var businessId = _configuration["Bookings:BusinessId"];
 
                 if (string.IsNullOrEmpty(businessId))
                 {
-                    return new CheckAvailabilityResponse
-                    {
-                        Available = true,
-                        Message = "Room available for booking",
-                        RoomType = request.RoomType,
-                        CheckInDate = request.CheckInDate,
-                        Price = 100m
-                    };
+                    _logger.LogWarning("Booking Business ID not configured");
+                    return new CalendarAvailabilityResponse { RoomType = roomType };
                 }
 
-                var encodedBusinessId = System.Web.HttpUtility.UrlEncode(businessId);
+                var response = new CalendarAvailabilityResponse { RoomType = roomType };
+                var today = DateTime.Today;
+                var endDate = today.AddMonths(months);
 
+                // Get all appointments for this service
+                var appointments = await graphClient
+                    .Solutions
+                    .BookingBusinesses[businessId]
+                    .Appointments
+                    .GetAsync(requestConfig =>
+                    {
+                        requestConfig.QueryParameters.Filter = $"serviceId eq '{roomType}'";
+                    });
+
+                var bookedDates = new HashSet<string>();
+                if (appointments?.Value != null)
+                {
+                    foreach (var appointment in appointments.Value)
+                    {
+                        try
+                        {
+                            if (appointment.StartDateTime != null && appointment.EndDateTime != null)
+                            {
+                                // Parse dates in ISO format with proper timezone handling
+                                var startDateStr = appointment.StartDateTime.DateTime;
+                                var endDateStr = appointment.EndDateTime.DateTime;
+
+                                if (DateTime.TryParse(startDateStr, System.Globalization.CultureInfo.InvariantCulture, 
+                                    System.Globalization.DateTimeStyles.RoundtripKind, out var startDate) &&
+                                    DateTime.TryParse(endDateStr, System.Globalization.CultureInfo.InvariantCulture, 
+                                    System.Globalization.DateTimeStyles.RoundtripKind, out var appointmentEndDate))
+                                {
+                                    // Convert to UTC and get date only
+                                    startDate = startDate.ToUniversalTime().Date;
+                                    appointmentEndDate = appointmentEndDate.ToUniversalTime().Date;
+
+                                    // Mark all dates from start to end (checkout) as booked
+                                    for (var date = startDate; date < appointmentEndDate; date = date.AddDays(1))
+                                    {
+                                        bookedDates.Add(date.ToString("yyyy-MM-dd"));
+                                    }
+                                }
+                            }
+                        }
+                        catch (Exception ex)
+                        {
+                            _logger.LogError($"Error processing appointment: {ex.Message}");
+                        }
+                    }
+                }
+
+                // Get room pricing
                 var service = await graphClient
                     .Solutions
-                    .BookingBusinesses[encodedBusinessId]
-                    .Services[request.RoomType]
+                    .BookingBusinesses[businessId]
+                    .Services[roomType]
                     .GetAsync();
 
-                if (service == null)
+                var price = service?.DefaultPrice.HasValue == true 
+                    ? Convert.ToDecimal(service.DefaultPrice.Value) 
+                    : 100m;
+
+                // Generate calendar
+                for (var date = today; date <= endDate; date = date.AddDays(1))
                 {
-                    return new CheckAvailabilityResponse
+                    response.Days.Add(new CalendarDayDto
                     {
-                        Available = false,
-                        Message = "Room not found",
-                        RoomType = request.RoomType,
-                        CheckInDate = request.CheckInDate
-                    };
+                        Date = date,
+                        IsAvailable = !bookedDates.Contains(date.ToString("yyyy-MM-dd")),
+                        Price = price
+                    });
                 }
 
-                // Check for existing appointments (bookings)
-                bool isAvailable = await CheckIfRoomAvailableAsync(graphClient, businessId, request.RoomType, request.CheckInDate, request.DurationNights);
-
-                return new CheckAvailabilityResponse
-                {
-                    Available = isAvailable,
-                    Message = isAvailable ? "Room is available" : "Room is already booked",
-                    RoomType = request.RoomType,
-                    CheckInDate = request.CheckInDate,
-                    Price = service.DefaultPrice.HasValue ? Convert.ToDecimal(service.DefaultPrice.Value) : 0m
-                };
+                return response;
             }
             catch (Exception ex)
             {
-                _logger.LogError($"Availability check error: {ex.Message}");
-                _logger.LogError($"Exception type: {ex.GetType().Name}");
-                _logger.LogError($"Stack trace: {ex.StackTrace}");
-                if (ex.InnerException != null)
-                {
-                    _logger.LogError($"Inner exception: {ex.InnerException.Message}");
-                    _logger.LogError($"Inner exception type: {ex.InnerException.GetType().Name}");
-                }
-                // Fail safe - assume available if check fails
-                return new CheckAvailabilityResponse
-                {
-                    Available = true,
-                    Message = "Room available for booking",
-                    RoomType = request.RoomType,
-                    CheckInDate = request.CheckInDate,
-                    Price = 100m
-                };
+                _logger.LogError($"Error fetching calendar: {ex.Message}");
+                return new CalendarAvailabilityResponse { RoomType = roomType };
             }
         }
 
+        /// <summary>
+        /// Create a new booking
+        /// </summary>
         public async Task<CreateBookingResponse> CreateBookingAsync(CreateBookingRequest request, string accessToken)
         {
             try
             {
-                _logger.LogInformation($"Creating booking for {request.CustomerInfo.FirstName} {request.CustomerInfo.LastName}");
-
                 var graphClient = await _delegationService.GetAuthenticatedGraphClientAsync();
                 var businessId = _configuration["Bookings:BusinessId"];
                 var staffId = _configuration["Bookings:StaffId"];
-                var encodedBusinessId = System.Web.HttpUtility.UrlEncode(businessId);
 
                 if (string.IsNullOrEmpty(businessId))
                 {
                     throw new InvalidOperationException("Booking Business ID not configured");
                 }
 
-                _logger.LogInformation($"Creating booking - Business ID: {businessId} (encoded: {encodedBusinessId})");
+                // Get service pricing
+                var service = await graphClient
+                    .Solutions
+                    .BookingBusinesses[businessId]
+                    .Services[request.RoomType]
+                    .GetAsync();
 
-                decimal price = 100m;
-                
-                if (!string.IsNullOrEmpty(staffId) && !string.IsNullOrEmpty(businessId))
+                var price = service?.DefaultPrice.HasValue == true 
+                    ? Convert.ToDecimal(service.DefaultPrice.Value) 
+                    : 100m;
+
+                // Create appointment
+                var appointmentStart = request.CheckInDate;
+                var appointmentEnd = request.CheckInDate.AddDays(request.DurationNights);
+
+                var appointment = new BookingAppointment
                 {
-                    try
+                    ServiceId = request.RoomType,
+                    StartDateTime = new DateTimeTimeZone { DateTime = appointmentStart.ToString("O"), TimeZone = "UTC" },
+                    EndDateTime = new DateTimeTimeZone { DateTime = appointmentEnd.ToString("O"), TimeZone = "UTC" },
+                    IsLocationOnline = false,
+                    Customers = new List<BookingCustomerInformationBase>
                     {
-                        // Get service details for pricing
-                        var service = await graphClient
-                            .Solutions
-                            .BookingBusinesses[encodedBusinessId]
-                            .Services[request.RoomType]
-                            .GetAsync();
-
-                        if (service?.DefaultPrice.HasValue == true)
+                        new BookingCustomerInformation
                         {
-                            price = Convert.ToDecimal(service.DefaultPrice.Value);
+                            Name = $"{request.CustomerInfo.FirstName} {request.CustomerInfo.LastName}",
+                            EmailAddress = request.CustomerInfo.Email,
+                            Phone = request.CustomerInfo.Phone,
+                            AdditionalData = new Dictionary<string, object>
+                            {
+                                { "notes", request.CustomerInfo.Notes ?? string.Empty }
+                            }
                         }
-
-                        // Create the appointment in Graph
-                        var appointment = new BookingAppointment
-                        {
-                            ServiceId = request.RoomType,
-                            StaffMemberIds = new List<string> { staffId },
-                            Customers = new List<BookingCustomerInformationBase>
-                            {
-                                new BookingCustomerInformation
-                                {
-                                    EmailAddress = request.CustomerInfo.Email,
-                                    Name = $"{request.CustomerInfo.FirstName} {request.CustomerInfo.LastName}",
-                                    Phone = request.CustomerInfo.Phone
-                                }
-                            },
-                            StartDateTime = new DateTimeTimeZone
-                            {
-                                DateTime = request.CheckInDate.ToString("yyyy-MM-ddT00:00:00"),
-                                TimeZone = "UTC"
-                            },
-                            EndDateTime = new DateTimeTimeZone
-                            {
-                                DateTime = request.CheckInDate.AddDays(request.DurationNights).ToString("yyyy-MM-ddT00:00:00"),
-                                TimeZone = "UTC"
-                            },
-                            AdditionalData = !string.IsNullOrEmpty(request.CustomerInfo.Notes) 
-                                ? new Dictionary<string, object> { { "notes", request.CustomerInfo.Notes } }
-                                : null,
-                            IsLocationOnline = false
-                        };
-
-                        // POST /solutions/bookingBusinesses/{businessId}/appointments
-                        var createdAppointment = await graphClient
-                            .Solutions
-                            .BookingBusinesses[encodedBusinessId]
-                            .Appointments
-                            .PostAsync(appointment);
-
-                        var response = new CreateBookingResponse
-                        {
-                            BookingId = createdAppointment?.Id ?? GenerateBookingId(),
-                            RoomType = request.RoomType,
-                            CheckInDate = request.CheckInDate,
-                            DurationNights = request.DurationNights,
-                            CustomerInfo = request.CustomerInfo,
-                            TotalPrice = price * request.DurationNights,
-                            Status = "Confirmed",
-                            CreatedAt = DateTime.UtcNow
-                        };
-
-                        // Send confirmation email
-                        _ = _emailService.SendBookingConfirmationAsync(response);
-
-                        _logger.LogInformation($"Booking created: {response.BookingId}");
-                        return response;
                     }
-                    catch (Exception graphEx)
-                    {
-                        _logger.LogWarning($"Graph API booking failed: {graphEx.Message}, creating local booking");
-                    }
+                };
+
+                if (!string.IsNullOrEmpty(staffId))
+                {
+                    appointment.StaffMemberIds = new List<string> { staffId };
                 }
 
-                // Fallback: Create local booking if Graph fails
-                var localResponse = new CreateBookingResponse
+                var createdAppointment = await graphClient
+                    .Solutions
+                    .BookingBusinesses[businessId]
+                    .Appointments
+                    .PostAsync(appointment);
+
+                var bookingId = createdAppointment?.Id ?? GenerateBookingId();
+                var totalPrice = price * request.DurationNights;
+
+                return new CreateBookingResponse
                 {
-                    BookingId = GenerateBookingId(),
+                    BookingId = bookingId,
                     RoomType = request.RoomType,
                     CheckInDate = request.CheckInDate,
                     DurationNights = request.DurationNights,
                     CustomerInfo = request.CustomerInfo,
-                    TotalPrice = price * request.DurationNights,
+                    TotalPrice = totalPrice,
                     Status = "Confirmed",
                     CreatedAt = DateTime.UtcNow
                 };
-
-                // Send confirmation email
-                _ = _emailService.SendBookingConfirmationAsync(localResponse);
-
-                _logger.LogInformation($"Local booking created: {localResponse.BookingId}");
-                return localResponse;
             }
             catch (Exception ex)
             {
-                _logger.LogError($"Booking creation error: {ex.Message}");
-                _logger.LogError($"Exception type: {ex.GetType().Name}");
-                _logger.LogError($"Stack trace: {ex.StackTrace}");
-                if (ex.InnerException != null)
-                {
-                    _logger.LogError($"Inner exception: {ex.InnerException.Message}");
-                    _logger.LogError($"Inner exception type: {ex.InnerException.GetType().Name}");
-                }
+                _logger.LogError($"Error creating booking: {ex.Message}");
                 throw;
             }
         }
 
+        /// <summary>
+        /// Get all bookings
+        /// </summary>
         public async Task<List<BookingSummary>> GetBookingsAsync(string accessToken)
         {
             var bookings = new List<BookingSummary>();
@@ -300,14 +282,13 @@ namespace HotelBookingAPI.Services
 
                 if (string.IsNullOrEmpty(businessId))
                 {
-                    _logger.LogWarning("Booking Business ID not configured. Cannot fetch bookings.");
+                    _logger.LogWarning("Booking Business ID not configured");
                     return bookings;
                 }
 
-                var encodedBusinessId = System.Web.HttpUtility.UrlEncode(businessId);
                 var appointments = await graphClient
                     .Solutions
-                    .BookingBusinesses[encodedBusinessId]
+                    .BookingBusinesses[businessId]
                     .Appointments
                     .GetAsync();
 
@@ -338,12 +319,14 @@ namespace HotelBookingAPI.Services
             catch (Exception ex)
             {
                 _logger.LogError($"Error retrieving bookings: {ex.Message}");
-                _logger.LogError(ex, "Full exception when retrieving bookings from Graph");
             }
 
             return bookings.OrderByDescending(b => b.CheckInDate).ToList();
         }
 
+        /// <summary>
+        /// Get a single booking by ID
+        /// </summary>
         public async Task<CreateBookingResponse?> GetBookingByIdAsync(string bookingId, string accessToken)
         {
             try
@@ -355,10 +338,9 @@ namespace HotelBookingAPI.Services
                     return null;
                 }
 
-                var encodedBusinessId = System.Web.HttpUtility.UrlEncode(businessId);
                 var appointment = await graphClient
                     .Solutions
-                    .BookingBusinesses[encodedBusinessId]
+                    .BookingBusinesses[businessId]
                     .Appointments[bookingId]
                     .GetAsync();
 
@@ -371,6 +353,9 @@ namespace HotelBookingAPI.Services
             }
         }
 
+        /// <summary>
+        /// Update an existing booking
+        /// </summary>
         public async Task<CreateBookingResponse?> UpdateBookingAsync(UpdateBookingRequest request, string accessToken)
         {
             try
@@ -387,7 +372,6 @@ namespace HotelBookingAPI.Services
                     throw new InvalidOperationException("Booking Business ID not configured");
                 }
 
-                var encodedBusinessId = System.Web.HttpUtility.UrlEncode(businessId);
                 var updatePayload = new BookingAppointment
                 {
                     ServiceId = request.RoomType,
@@ -402,25 +386,25 @@ namespace HotelBookingAPI.Services
                     },
                     StartDateTime = new DateTimeTimeZone
                     {
-                        DateTime = request.CheckInDate.ToString("yyyy-MM-ddT00:00:00"),
+                        DateTime = request.CheckInDate.ToString("O"),
                         TimeZone = "UTC"
                     },
                     EndDateTime = new DateTimeTimeZone
                     {
-                        DateTime = request.CheckInDate.AddDays(request.DurationNights).ToString("yyyy-MM-ddT00:00:00"),
+                        DateTime = request.CheckInDate.AddDays(request.DurationNights).ToString("O"),
                         TimeZone = "UTC"
                     }
                 };
 
                 await graphClient
                     .Solutions
-                    .BookingBusinesses[encodedBusinessId]
+                    .BookingBusinesses[businessId]
                     .Appointments[request.BookingId]
                     .PatchAsync(updatePayload);
 
                 var updated = await graphClient
                     .Solutions
-                    .BookingBusinesses[encodedBusinessId]
+                    .BookingBusinesses[businessId]
                     .Appointments[request.BookingId]
                     .GetAsync();
 
@@ -429,11 +413,13 @@ namespace HotelBookingAPI.Services
             catch (Exception ex)
             {
                 _logger.LogError($"Booking update error: {ex.Message}");
-                _logger.LogError(ex, "Full exception when updating booking");
                 throw;
             }
         }
 
+        /// <summary>
+        /// Delete a booking
+        /// </summary>
         public async Task<bool> DeleteBookingAsync(string bookingId, string accessToken)
         {
             try
@@ -445,10 +431,9 @@ namespace HotelBookingAPI.Services
                     throw new InvalidOperationException("Booking Business ID not configured");
                 }
 
-                var encodedBusinessId = System.Web.HttpUtility.UrlEncode(businessId);
                 await graphClient
                     .Solutions
-                    .BookingBusinesses[encodedBusinessId]
+                    .BookingBusinesses[businessId]
                     .Appointments[bookingId]
                     .DeleteAsync();
 
@@ -461,62 +446,17 @@ namespace HotelBookingAPI.Services
             }
         }
 
-        private async Task<bool> CheckIfRoomAvailableAsync(GraphServiceClient graphClient, string businessId, string serviceId, DateTime checkInDate, int durationNights)
-        {
-            try
-            {
-                var checkOutDate = checkInDate.AddDays(durationNights);
-                var encodedBusinessId = System.Web.HttpUtility.UrlEncode(businessId);
-
-                // GET /solutions/bookingBusinesses/{businessId}/appointments
-                var appointments = await graphClient
-                    .Solutions
-                    .BookingBusinesses[encodedBusinessId]
-                    .Appointments
-                    .GetAsync();
-
-                if (appointments?.Value == null || appointments.Value.Count == 0)
-                {
-                    return true; // No bookings, room is available
-                }
-
-                // Check for conflicts
-                foreach (var apt in appointments.Value)
-                {
-                    if (apt.ServiceId != serviceId)
-                        continue;
-
-                    if (apt.StartDateTime?.DateTime != null && apt.EndDateTime?.DateTime != null)
-                    {
-                        if (DateTime.Parse(apt.StartDateTime.DateTime) < checkOutDate && 
-                            DateTime.Parse(apt.EndDateTime.DateTime) > checkInDate)
-                        {
-                            return false; // Conflict found
-                        }
-                    }
-                }
-
-                return true; // No conflicts
-            }
-            catch (Exception ex)
-            {
-                _logger.LogWarning($"Availability check failed, assuming available: {ex.Message}");
-                _logger.LogWarning($"Exception type: {ex.GetType().Name}");
-                _logger.LogWarning($"Stack trace: {ex.StackTrace}");
-                if (ex.InnerException != null)
-                {
-                    _logger.LogWarning($"Inner exception: {ex.InnerException.Message}");
-                    _logger.LogWarning($"Inner exception type: {ex.InnerException.GetType().Name}");
-                }
-                return true; // Fail safe
-            }
-        }
-
+        /// <summary>
+        /// Helper: Generate a booking ID
+        /// </summary>
         private string GenerateBookingId()
         {
             return $"BK-{DateTime.UtcNow:yyyyMMddHHmmss}-{Guid.NewGuid().ToString().Substring(0, 8).ToUpper()}";
         }
 
+        /// <summary>
+        /// Helper: Map appointment to booking response
+        /// </summary>
         private CreateBookingResponse? MapAppointmentToResponse(BookingAppointment? appointment)
         {
             if (appointment == null)
@@ -544,21 +484,6 @@ namespace HotelBookingAPI.Services
                 price = Convert.ToDecimal(appointment.Price.Value);
             }
 
-            var status = "Confirmed";
-            if (appointment.AdditionalData != null && appointment.AdditionalData.TryGetValue("status", out var statusObj))
-            {
-                status = statusObj?.ToString() ?? status;
-            }
-
-            var createdAt = checkIn;
-            if (appointment.AdditionalData != null && appointment.AdditionalData.TryGetValue("createdDateTime", out var createdRaw))
-            {
-                if (DateTime.TryParse(createdRaw?.ToString(), out var parsedCreated))
-                {
-                    createdAt = parsedCreated;
-                }
-            }
-
             var nameParts = customer?.Name?.Split(' ', StringSplitOptions.RemoveEmptyEntries) ?? Array.Empty<string>();
             var firstName = nameParts.FirstOrDefault() ?? string.Empty;
             var lastName = nameParts.Length > 1 ? string.Join(' ', nameParts.Skip(1)) : string.Empty;
@@ -580,8 +505,8 @@ namespace HotelBookingAPI.Services
                         : string.Empty
                 },
                 TotalPrice = price,
-                Status = status,
-                CreatedAt = createdAt
+                Status = "Confirmed",
+                CreatedAt = checkIn
             };
         }
     }

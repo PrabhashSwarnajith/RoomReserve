@@ -4,6 +4,9 @@ using Microsoft.AspNetCore.Mvc;
 
 namespace HotelBookingAPI.Controllers
 {
+    /// <summary>
+    /// API Controller for hotel booking operations
+    /// </summary>
     [ApiController]
     [Route("api/bookings")]
     public class BookingsController : ControllerBase
@@ -17,12 +20,14 @@ namespace HotelBookingAPI.Controllers
             _logger = logger;
         }
 
+        /// <summary>
+        /// Get all available room types
+        /// </summary>
         [HttpGet("room-types")]
         public async Task<ActionResult<dynamic>> GetRoomTypes()
         {
             try
             {
-                _logger.LogInformation("Fetching available rooms");
                 var roomTypes = await _bookingService.GetRoomTypesAsync("");
                 return Ok(new { roomTypes });
             }
@@ -33,34 +38,34 @@ namespace HotelBookingAPI.Controllers
             }
         }
 
-        [HttpPost("check-availability")]
-        public async Task<ActionResult<CheckAvailabilityResponse>> CheckAvailability([FromBody] CheckAvailabilityRequest request)
+        /// <summary>
+        /// Get calendar availability for a specific room type
+        /// </summary>
+        [HttpGet("calendar/{roomType}")]
+        public async Task<ActionResult<CalendarAvailabilityResponse>> GetCalendarAvailability(string roomType, [FromQuery] int months = 3)
         {
             try
             {
-                if (request == null || string.IsNullOrEmpty(request.RoomType))
+                if (string.IsNullOrEmpty(roomType))
                 {
-                    return BadRequest(new { error = "Room type and check-in date required" });
+                    return BadRequest(new { error = "Room type is required" });
                 }
 
-                var response = await _bookingService.CheckAvailabilityAsync(request, "");
-                return Ok(response);
+                months = months < 1 || months > 12 ? 3 : months;
+
+                var calendarData = await _bookingService.GetCalendarAvailabilityAsync(roomType, months, "");
+                return Ok(calendarData);
             }
             catch (Exception ex)
             {
-                _logger.LogError($"Availability check error: {ex.Message}");
-                // Fail safe - assume available
-                return Ok(new CheckAvailabilityResponse
-                {
-                    Available = true,
-                    Message = "Room is available",
-                    RoomType = request.RoomType,
-                    CheckInDate = request.CheckInDate,
-                    Price = 100m
-                });
+                _logger.LogError($"Error fetching calendar: {ex.Message}");
+                return StatusCode(500, new { error = "Could not load calendar data." });
             }
         }
 
+        /// <summary>
+        /// Create a new booking
+        /// </summary>
         [HttpPost("create")]
         public async Task<ActionResult<CreateBookingResponse>> CreateBooking([FromBody] CreateBookingRequest request)
         {
@@ -71,7 +76,6 @@ namespace HotelBookingAPI.Controllers
                     return BadRequest(new { error = "Room type and customer information required" });
                 }
 
-                // Validate customer info
                 if (string.IsNullOrEmpty(request.CustomerInfo.FirstName) ||
                     string.IsNullOrEmpty(request.CustomerInfo.LastName) ||
                     string.IsNullOrEmpty(request.CustomerInfo.Email))
@@ -79,7 +83,6 @@ namespace HotelBookingAPI.Controllers
                     return BadRequest(new { error = "First name, last name, and email are required" });
                 }
 
-                _logger.LogInformation($"Creating booking for {request.CustomerInfo.FirstName} {request.CustomerInfo.LastName}");
                 var response = await _bookingService.CreateBookingAsync(request, "");
                 return Ok(response);
             }
@@ -90,6 +93,9 @@ namespace HotelBookingAPI.Controllers
             }
         }
 
+        /// <summary>
+        /// Get all bookings
+        /// </summary>
         [HttpGet]
         public async Task<ActionResult<IEnumerable<BookingSummary>>> GetBookings()
         {
@@ -107,7 +113,6 @@ namespace HotelBookingAPI.Controllers
 
         /// <summary>
         /// Get a single booking by ID
-        /// GET /api/bookings/{bookingId}
         /// </summary>
         [HttpGet("{bookingId}")]
         public async Task<ActionResult<CreateBookingResponse>> GetBookingById(string bookingId)
@@ -130,7 +135,6 @@ namespace HotelBookingAPI.Controllers
 
         /// <summary>
         /// Update an existing booking
-        /// PUT /api/bookings/{bookingId}
         /// </summary>
         [HttpPut("{bookingId}")]
         public async Task<ActionResult<CreateBookingResponse>> UpdateBooking(string bookingId, [FromBody] UpdateBookingRequest request)
@@ -154,7 +158,6 @@ namespace HotelBookingAPI.Controllers
 
         /// <summary>
         /// Delete an existing booking
-        /// DELETE /api/bookings/{bookingId}
         /// </summary>
         [HttpDelete("{bookingId}")]
         public async Task<IActionResult> DeleteBooking(string bookingId)
@@ -176,3 +179,4 @@ namespace HotelBookingAPI.Controllers
         }
     }
 }
+

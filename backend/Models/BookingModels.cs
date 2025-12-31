@@ -75,4 +75,18 @@ namespace HotelBookingAPI.Models
         public int DurationNights { get; set; } = 1;
         public CustomerInfo CustomerInfo { get; set; } = new();
     }
+
+    public class CalendarDayDto
+    {
+        public DateTime Date { get; set; }
+        public bool IsAvailable { get; set; }
+        public decimal Price { get; set; }
+    }
+
+    public class CalendarAvailabilityResponse
+    {
+        public string RoomType { get; set; } = string.Empty;
+        public List<CalendarDayDto> Days { get; set; } = new();
+        public string Message { get; set; } = "Calendar data retrieved successfully";
+    }
 }
